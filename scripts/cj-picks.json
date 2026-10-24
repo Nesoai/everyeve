@@ -1,0 +1,14 @@
+{
+  "_read_me": "Ready-made products to sell from CJdropshipping's US warehouses. Find candidates with: CJ_API_KEY=... node scripts/cj-import.mjs --search \"menorah\". Add one entry per product with its CJ product ID (pid), then run the script without flags to import. price is optional: leave it out to use cost x markup. Only variants in stock in a US warehouse are imported.",
+  "markup": 2.5,
+  "sampleZip": "38103",
+  "picks": [],
+  "_example": {
+    "id": "cj-led-menorah",
+    "pid": "PASTE-CJ-PRODUCT-ID",
+    "occasion": "hanukkah",
+    "name": "LED Menorah",
+    "blurb": "Battery-powered menorah with nine switchable candles. Safe for kids' rooms and windows.",
+    "price": 34
+  }
+}

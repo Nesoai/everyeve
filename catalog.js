@@ -4,6 +4,8 @@
 //
 // To change a price, a product, or the shipping rates, edit this file and push.
 
+import { CJ_PRODUCTS } from "./cj-products.js";
+
 export const CONFIG = {
   storeName: "EveryEve",
   operator: "NESO HQ LLC",
@@ -16,10 +18,6 @@ export const CONFIG = {
   maxLines: 25,
   // Shown in the footer when set. Leave empty to hide.
   supportEmail: "",
-  // The shop pup. Put a photo at /mascot.jpg (square, 1200 px or larger) and set
-  // mascotPhoto to "/mascot.jpg" to replace the illustration everywhere it appears.
-  mascotName: "",
-  mascotPhoto: "",
 };
 
 // Days the print partner and carriers don't work. Used for arrival estimates.
@@ -47,6 +45,7 @@ export const OCCASIONS = [
 
 // ---------------------------------------------------------------- colors
 export const COLORS = {
+  std: { name: "Standard", hex: "#F3F3F3" },
   white: { name: "White", hex: "#F7F6F2" },
   natural: { name: "Natural", hex: "#ECE3D0" },
   heather: { name: "Heather Grey", hex: "#C6C7C4" },
@@ -67,7 +66,7 @@ export const COLORS = {
 export const TYPES = {
   tee: { label: "Unisex tee", options: ["S", "M", "L", "XL", "2XL", "3XL"], up: { "2XL": 2, "3XL": 4 }, prod: [2, 5],
     spec: "Soft ring-spun cotton, relaxed unisex fit. Printed direct-to-garment." },
-  kidstee: { label: "Kids tee", options: ["XS", "S", "M", "L", "XL"], prod: [2, 5],
+  kidstee: { label: "Kids tee", options: ["S", "M", "L", "XL"], optionLabel: "Youth size", prod: [2, 5],
     spec: "Youth sizes in soft cotton. Printed direct-to-garment." },
   sweatshirt: { label: "Crewneck sweatshirt", options: ["S", "M", "L", "XL", "2XL", "3XL"], up: { "2XL": 3, "3XL": 5 }, prod: [2, 5],
     spec: "Cotton-blend fleece with ribbed collar, cuffs and hem." },
@@ -87,14 +86,16 @@ export const TYPES = {
     spec: "Matte archival paper. Frame not included." },
   cards: { label: "Greeting cards", options: ["Single card", "Pack of 10"], up: { "Pack of 10": 39 }, pack: { "Pack of 10": ["Single card", 10] }, prod: [2, 5],
     spec: "Folded card, blank inside, envelope included." },
-  candle: { label: "Soy candle", options: ["9 oz"], prod: [3, 5],
-    spec: "Soy wax candle in a glass jar with lid." },
+  candle: { label: "Soy candle", options: ["Christmas Warmth", "Cinnamon Vanilla", "Apple Harvest", "Unscented"], optionLabel: "Scent", prod: [3, 5],
+    spec: "9 oz scented soy wax candle in a glass jar." },
   socks: { label: "Socks", options: ["S", "M", "L"], prod: [2, 5],
     spec: "Cushioned crew socks with the design printed around the leg." },
-  puzzle: { label: "Jigsaw puzzle", options: ["500 pieces"], prod: [3, 6],
-    spec: "Glossy 500-piece puzzle, boxed." },
+  puzzle: { label: "Jigsaw puzzle", options: ["520 pieces"], prod: [3, 6],
+    spec: "Glossy 520-piece puzzle, boxed." },
   stickers: { label: "Sticker sheet", options: ["One sheet"], prod: [2, 4],
     spec: "Kiss-cut vinyl stickers, water resistant." },
+  // Ready-made items stocked in CJdropshipping's US warehouses (see cj-products.js).
+  cj: { label: "Home & decor", options: ["Standard"], prod: [1, 3], spec: "" },
   beanie: { label: "Embroidered beanie", options: ["One size"], prod: [3, 6],
     spec: "Cuffed knit beanie with an embroidered patch design." },
 };
@@ -315,7 +316,9 @@ export function designSvg(designId, dark) {
 const P = (id, occasion, design, type, price, colors, name, blurb, extra = {}) =>
   ({ id, occasion, design, type, price, colors, name, blurb, ...extra });
 
-export const PRODUCTS = [
+
+
+const PRINTED = [
   // Halloween
   P("spooky-tee", "halloween", "spooky", "tee", 28, ["black", "natural", "rust"], "Spooky Season Tee", "A grinning jack-o’-lantern in hand lettering. Made to order, so it lands for the tail end of October and every cold evening after."),
   P("spooky-mug", "halloween", "spooky", "mug", 18, ["black", "white"], "Spooky Season Mug", "For cider, coffee, or the candy you said you were saving for trick-or-treaters."),
@@ -345,7 +348,7 @@ export const PRODUCTS = [
   P("holly-pillow", "christmas", "holly", "pillow", 36, ["natural", "maroon"], "Deck the Halls Pillow", "Holly leaves and berries for the armchair by the tree."),
   P("holly-candle", "christmas", "holly", "candle", 32, ["natural"], "Deck the Halls Candle", "Soy candle with the holly label. An easy gift for teachers, neighbors and hosts."),
   P("merry-cards", "christmas", "tree", "cards", 6, ["natural", "forest"], "Merry & Bright Cards", "Blank inside with envelopes. The pack of ten handles the card list."),
-  P("merry-puzzle", "christmas", "tree", "puzzle", 34, ["natural"], "Merry & Bright Puzzle", "A 500-piece puzzle for the quiet afternoon between Christmas and New Year’s."),
+  P("merry-puzzle", "christmas", "tree", "puzzle", 34, ["natural"], "Merry & Bright Puzzle", "A 520-piece puzzle for the quiet afternoon between Christmas and New Year’s."),
   P("holly-socks", "christmas", "holly", "socks", 18, ["white"], "Deck the Halls Socks", "Cushioned crew socks. A dependable stocking stuffer."),
   P("merry-hoodie", "christmas", "tree", "hoodie", 54, ["forest", "black", "heather"], "Merry & Bright Hoodie", "Heavier and warmer than the crewneck, with a pouch for cold hands."),
   // Kwanzaa
@@ -365,28 +368,38 @@ export const PRODUCTS = [
   P("cocoa-mug", "winter", "cocoa", "mug", 18, ["white", "black"], "Hot Cocoa Club Mug", "Membership is open. Marshmallows strongly encouraged."),
   P("snow-blanket", "winter", "snowflake", "blanket", 64, ["ice", "navy"], "Snow Day Blanket", "A plush throw for the days school is called off."),
   P("cocoa-socks", "winter", "cocoa", "socks", 18, ["white"], "Hot Cocoa Club Socks", "Cushioned crew socks for cold floors."),
-  P("snow-puzzle", "winter", "snowflake", "puzzle", 34, ["ice"], "Snow Day Puzzle", "A 500-piece puzzle for a long indoor afternoon."),
-  P("cocoa-kids", "winter", "cocoa", "kidstee", 22, ["blush", "ice", "white"], "Hot Cocoa Club Kids Tee", "Youth sizes for the club’s youngest members."),
+  P("snow-puzzle", "winter", "snowflake", "puzzle", 34, ["ice"], "Snow Day Puzzle", "A 520-piece puzzle for a long indoor afternoon."),
+  P("cocoa-kids", "winter", "cocoa", "kidstee", 22, ["blush", "natural", "white"], "Hot Cocoa Club Kids Tee", "Youth sizes for the club’s youngest members."),
 ];
+for (const p of PRINTED) p.supplier = "printful";
+export const PRODUCTS = [...PRINTED, ...CJ_PRODUCTS];
 
 // ---------------------------------------------------------------- pricing + SKUs
-export const optionPrice = (p, opt) => p.price + ((TYPES[p.type].up || {})[opt] || 0);
+export const optionsOf = (p) => p.options || TYPES[p.type].options;
+export const optionLabel = (p) => p.optionLabel || TYPES[p.type].optionLabel || (p.type === "cards" ? "Quantity" : "Size");
+export const specOf = (p) => p.spec || TYPES[p.type].spec;
+export const typeLabel = (p) => p.typeLabel || TYPES[p.type].label;
+export const optionPrice = (p, opt) =>
+  p.prices && p.prices[opt] != null ? p.prices[opt] : p.price + ((TYPES[p.type].up || {})[opt] || 0);
 // SKUs are plain ASCII (product.color.option-slug) so every fulfillment system accepts them.
 const slug = (o) => o.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 export const sku = (pid, color, opt) => `${pid}.${color}.${slug(opt)}`;
 export function parseSku(s) {
   const [pid, color, os] = String(s).split(".");
   const p = PRODUCTS.find((x) => x.id === pid);
-  const opt = p && TYPES[p.type].options.find((o) => slug(o) === os);
+  const opt = p && optionsOf(p).find((o) => slug(o) === os);
   if (!p || !opt || !p.colors.includes(color)) return null;
   return { product: p, color, option: opt, unitCents: Math.round(optionPrice(p, opt) * 100) };
 }
-// What the print partner is asked to make for one sold unit of a SKU.
+// What a supplier is asked to send for one sold line.
+// Printful lines name the store SKU (set as the variant's external ID by the sync script);
+// CJ lines name CJ's variant ID.
 export function fulfilmentLine(s, qty) {
   const v = parseSku(s);
+  if (v.product.supplier === "cj") return { supplier: "cj", vid: v.product.vids[v.option], quantity: qty };
   const pack = (TYPES[v.product.type].pack || {})[v.option];
-  if (pack) return { externalVariantId: sku(v.product.id, v.color, pack[0]), quantity: qty * pack[1] };
-  return { externalVariantId: s, quantity: qty };
+  if (pack) return { supplier: "printful", externalVariantId: sku(v.product.id, v.color, pack[0]), quantity: qty * pack[1] };
+  return { supplier: "printful", externalVariantId: s, quantity: qty };
 }
 
 // ---------------------------------------------------------------- arrival estimates

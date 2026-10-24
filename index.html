@@ -72,8 +72,10 @@ h1 { font-size: 40px } h2 { font-size: 24px } h3 { font-size: 18px }
 .banner .page-width { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 30px; min-height: 480px; padding-block: 40px }
 .banner h1 { font-size: 52px; line-height: 1.15 }
 .banner p { font-size: 18px; margin: 14px 0 28px; max-width: 44ch }
-.banner .art { display: flex; justify-content: center }
-.banner .art svg, .banner .art img { width: min(420px, 100%); height: auto }
+.collage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 520px; justify-self: end; width: 100% }
+.collage a { display: block; aspect-ratio: 1; background: var(--bg); overflow: hidden; max-width: 100% }
+.collage svg, .collage img, .media img, .gallery img, .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block }
+.noimg { display: grid; place-items: center; width: 100%; height: 100%; padding: 16px; text-align: center; color: var(--soft); font-size: 14px }
 .banner .btns { display: flex; gap: 12px; flex-wrap: wrap }
 
 /* titles */
@@ -96,7 +98,8 @@ h1 { font-size: 40px } h2 { font-size: 24px } h3 { font-size: 18px }
 .card { display: grid; gap: 6px; align-content: start; min-width: 0; position: relative }
 .card .media { position: relative; display: block; aspect-ratio: 1; max-width: 100%; background: var(--media); overflow: hidden }
 .card .media svg { width: 100%; height: 100%; display: block; transition: transform .5s ease }
-.card:hover .media svg { transform: scale(1.03) }
+.card:hover .media svg, .card:hover .media img { transform: scale(1.03) }
+.card .media img { transition: transform .5s ease }
 .card .media .alt { position: absolute; inset: 0; opacity: 0; transition: opacity .4s }
 .card:hover .media .alt { opacity: 1 }
 .badge { position: absolute; left: 10px; bottom: 10px; z-index: 2; border-radius: 40px; padding: 2px 12px; font-size: 12px; letter-spacing: 1px; background: var(--btn); color: #fff; line-height: 1.8 }
@@ -112,7 +115,7 @@ h1 { font-size: 40px } h2 { font-size: 24px } h3 { font-size: 18px }
 .iwt { background: var(--scheme2) }
 .iwt .page-width { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 0 }
 .iwt .media { background: var(--banner); aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; padding: 30px }
-.iwt .media svg, .iwt .media img { width: 82%; height: auto }
+.iwt .media { padding: 0; background: var(--media) }
 .iwt .content { padding: 40px 50px }
 .iwt .eyebrow, .eyebrow { font-size: 13px; letter-spacing: 1.3px; text-transform: uppercase; color: var(--soft) }
 .iwt h2 { font-size: 32px; margin: 6px 0 14px }
@@ -196,7 +199,6 @@ details.acc div { padding-bottom: 16px; font-size: 15px }
 .totals .price { font-size: 18px }
 .drawer__foot small { font-size: 13px; color: var(--soft); line-height: 1.5 }
 .drawer .empty-cart { padding: 60px 0; text-align: center; display: grid; gap: 16px; justify-items: center }
-.drawer .empty-cart svg { width: 140px }
 
 /* footer */
 footer.site { border-top: 1px solid var(--line); margin-top: 20px }
@@ -224,7 +226,7 @@ footer.site { border-top: 1px solid var(--line); margin-top: 20px }
   .header { grid-template-columns: auto 1fr auto; padding-block: 10px }
   .logo { justify-self: center; font-size: 22px }
   .banner .page-width { grid-template-columns: 1fr; min-height: 0; text-align: center; padding-block: 30px 36px }
-  .banner .art { order: -1 } .banner .art svg, .banner .art img { width: min(280px, 80%) }
+  .collage { justify-self: center; max-width: 420px; order: -1 }
   .banner h1 { font-size: 34px } .banner p { margin-inline: auto }
   .banner .btns { justify-content: center }
   .collections, .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 10px }
@@ -286,10 +288,13 @@ footer.site { border-top: 1px solid var(--line); margin-top: 20px }
 <div class="toast" id="toast" hidden role="status"></div>
 
 <script type="module">
-import { CONFIG, OCCASIONS, COLORS, TYPES, PRODUCTS, optionPrice, sku, parseSku,
+import { CONFIG, OCCASIONS, COLORS, TYPES, PRODUCTS, optionPrice, sku, parseSku, optionsOf, optionLabel, specOf, typeLabel,
   arrival, fitFor, orderBy, parseDate, todayLocal } from "./catalog.js";
-import { puppy, head } from "./mascot.js";
 import { mockup } from "./mockups.js";
+
+// Product photos made by Printful (scripts/printful-sync.mjs). Until they exist, products show drawn previews.
+let PHOTOS = {};
+try { const r = await fetch("images/manifest.json"); if (r.ok) PHOTOS = await r.json(); } catch {}
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -300,9 +305,17 @@ const fmt = (d) => `${MON[d.getUTCMonth()]} ${d.getUTCDate()}`;
 const occ = Object.fromEntries(OCCASIONS.map((o) => [o.id, o]));
 const TODAY = todayLocal();
 const NAME = CONFIG.storeName;
-const pup = (o) => CONFIG.mascotPhoto ? `<img src="${CONFIG.mascotPhoto}" alt="${esc(CONFIG.mascotName || "Our shop pup")}">` : puppy(o);
-const pupName = CONFIG.mascotName || "our shop pup";
-const cap = (s) => s[0].toUpperCase() + s.slice(1);
+const hasCJ = PRODUCTS.some((p) => p.supplier === "cj");
+function photosOf(p, color, option) {
+  if (p.supplier === "cj") { const v = option && p.optionPhotos && p.optionPhotos[option]; return [...(v ? [v] : []), ...(p.photos || [])]; }
+  return PHOTOS[`${p.id}.${color}`] || [];
+}
+function pic(p, color, i = 0, option) {
+  const ph = photosOf(p, color, option);
+  if (ph[i]) return `<img src="${esc(ph[i])}" alt="${esc(p.name)}${p.colors.length > 1 ? ", " + esc(COLORS[color].name) : ""}" loading="lazy">`;
+  if (i > 0) return "";
+  return p.supplier === "cj" ? `<span class="noimg">${esc(p.name)}</span>` : mockup(p, color);
+}
 
 // Holidays still ahead (ending today or later), in date order.
 const upcoming = OCCASIONS.filter((o) => parseDate(o.end || o.date) >= TODAY);
@@ -316,8 +329,8 @@ const count = () => cart.reduce((a, l) => a + l.qty, 0);
 function drawCount() { const n = count(), b = $("#cartCount"); b.textContent = n; b.hidden = !n; }
 
 // ------------------------------------------------------------ helpers
-const minPrice = (p) => Math.min(...TYPES[p.type].options.map((o) => optionPrice(p, o)));
-const ranged = (p) => TYPES[p.type].options.some((o) => optionPrice(p, o) !== p.price);
+const minPrice = (p) => Math.min(...optionsOf(p).map((o) => optionPrice(p, o)));
+const ranged = (p) => optionsOf(p).some((o) => optionPrice(p, o) !== minPrice(p));
 function status(p, targetDate) {
   const o = occ[p.occasion];
   const date = targetDate || (o.season ? null : parseDate(o.date));
@@ -330,9 +343,9 @@ function badge(p) {
   return "";
 }
 function card(p) {
-  const second = p.colors[1];
+  const c0 = p.colors[0], alt = pic(p, c0, 1) || (p.colors[1] ? pic(p, p.colors[1]) : "");
   return `<li class="card">
-    <div class="media">${mockup(p, p.colors[0])}${second ? `<div class="alt">${mockup(p, second)}</div>` : ""}${badge(p)}</div>
+    <div class="media">${pic(p, c0)}${alt ? `<div class="alt">${alt}</div>` : ""}${badge(p)}</div>
     <a class="card__title" href="#${p.id}">${esc(p.name)}</a>
     <div class="price">${ranged(p) ? "From " : ""}${usd(minPrice(p))}</div></li>`;
 }
@@ -347,9 +360,10 @@ function viewHome() {
   return `
   <section class="banner"><div class="page-width">
     <div><h1>Holiday gifts, made just for you</h1>
-      <p>From Thanksgiving to New Year’s Eve, every piece is printed to order and shipped from the US. Each product shows its delivery date before you buy.</p>
+      <p>Gifts and keepsakes for every celebration from Thanksgiving to New Year’s Eve, shipped from the US. Each product shows its delivery date before you buy.</p>
       <div class="btns"><a class="button" href="#shop-all">Shop all</a>${soon ? `<a class="button button--secondary" href="#${soon.id}">Shop ${esc(soon.name)}</a>` : ""}</div></div>
-    <div class="art">${pup({ gift: true })}</div>
+    <div class="collage">${["merry-crew", "hanukkah-mug", "holly-pillow", "grateful-tee"].map((id) => PRODUCTS.find((p) => p.id === id)).filter(Boolean)
+      .map((p) => `<a href="#${p.id}" aria-label="${esc(p.name)}">${pic(p, p.colors[0])}</a>`).join("")}</div>
   </div></section>
 
   <section class="section"><div class="page-width">
@@ -358,7 +372,7 @@ function viewHome() {
       const p = PRODUCTS.find((x) => x.occasion === o.id), d = parseDate(o.date);
       const ob = orderBy(o);
       const sub = o.season ? "All season long" : ob >= TODAY ? `${DOW[d.getUTCDay()]}, ${fmt(d)} · order by ${fmt(ob)}` : `${DOW[d.getUTCDay()]}, ${fmt(d)} · express recommended`;
-      return `<a class="collection-card" href="#${o.id}"><span class="media" style="background:${o.color}22">${mockup(p, p.colors[0])}</span>
+      return `<a class="collection-card" href="#${o.id}"><span class="media" style="background:${o.color}22">${pic(p, p.colors[0])}</span>
         <span><h3>${esc(o.name)} ${arrowSvg}</h3><small>${sub}</small></span></a>`;
     }).join("")}</div>
   </div></section>
@@ -370,11 +384,11 @@ function viewHome() {
   </div></section>
 
   <section class="iwt"><div class="page-width">
-    <div class="media">${pup({ label: "The EveryEve shop pup" })}</div>
-    <div class="content"><span class="eyebrow">Meet the team</span>
-      <h2>Quality control has four paws</h2>
-      <p>Every design in the shop gets a sniff test from ${esc(pupName)}, ${NAME}’s chief morale officer. If it isn’t cozy, cheerful and gift-worthy, it doesn’t make the cut.</p>
-      <p>Nothing sits in a warehouse. Your order is printed after you check out, so it’s made fresh, and nothing goes to waste.</p>
+    <div class="media">${(() => { const p = PRODUCTS.find((x) => x.id === "snow-blanket"); return p ? pic(p, p.colors[0]) : ""; })()}</div>
+    <div class="content"><span class="eyebrow">Made to order</span>
+      <h2>Printed for you, not pulled from a shelf</h2>
+      <p>Our printed designs are made after you check out, at print facilities in the US. Nothing sits in a warehouse, so every piece arrives fresh and nothing goes to waste.</p>
+      <p>Every product page shows the delivery window before you buy, so you know it will arrive in time for the holiday.</p>
       <a class="button button--secondary" href="#shop-all">Browse the shop</a></div>
   </div></section>
 
@@ -384,7 +398,7 @@ function viewHome() {
 
   <section class="section" style="padding-block:50px"><div class="page-width multicolumn">
     <div><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="14" width="28" height="20"/><path d="M6 20h28M20 14v20M20 14c-3-6-10-6-8-1 1 2 8 1 8 1zm0 0c3-6 10-6 8-1-1 2-8 1-8 1z"/></svg>
-      <h3>Made to order</h3><p>Printed for you within 2 to 5 business days of your order.</p></div>
+      <h3>Made to order</h3><p>Printed for you within 2 to 5 business days of your order${hasCJ ? ". Ready-made decor ships from US warehouses" : ""}.</p></div>
     <div><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11h20v17H3zM23 17h8l5 6v5H23z"/><circle cx="10" cy="30" r="3"/><circle cx="29" cy="30" r="3"/></svg>
       <h3>Free shipping over ${usd(CONFIG.shipping.standard.freeOverCents / 100).replace(".00", "")}</h3><p>US addresses. Tracking by email when your order ships.</p></div>
     <div><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 4l13 5v9c0 9-6 15-13 18C13 33 7 27 7 18V9z"/><path d="M14 20l4 4 8-8"/></svg>
@@ -418,17 +432,24 @@ function viewCollection(id) {
 
 let pv = null;
 function viewProduct(p) {
-  const t = TYPES[p.type];
-  if (!pv || pv.p !== p) pv = { p, color: p.colors[0], option: t.options.includes("M") ? "M" : t.options[0], qty: 1, msg: "" };
+  const opts = optionsOf(p);
+  if (!pv || pv.p !== p) pv = { p, color: p.colors[0], option: opts.includes("M") ? "M" : opts[0], qty: 1, msg: "", img: 0 };
   return `<div class="page-width"><div class="product">
-    <div class="gallery"><div class="main">${mockup(p, pv.color)}</div>
-      ${p.colors.length > 1 ? `<div class="thumbs">${p.colors.map((c) => `<button data-color="${c}" aria-current="${c === pv.color}" aria-label="${COLORS[c].name}">${mockup(p, c)}</button>`).join("")}</div>` : ""}</div>
+    <div class="gallery">${gallery()}</div>
     <div class="info">${productInfo()}</div></div>
     <section style="padding-block:20px 50px"><div class="title-wrapper"><h2>You may also like</h2></div>
     ${grid(PRODUCTS.filter((x) => x.occasion === p.occasion && x.id !== p.id).concat(PRODUCTS.filter((x) => x.design === p.design && x.occasion !== p.occasion)).slice(0, 4))}</section></div>`;
 }
+function gallery() {
+  const { p, color, option } = pv, ph = photosOf(p, color, option), i = Math.min(pv.img || 0, Math.max(0, ph.length - 1));
+  const main = ph.length ? pic(p, color, i, option) : pic(p, color);
+  const thumbs = ph.length > 1
+    ? ph.map((src, k) => `<button data-img="${k}" aria-current="${k === i}" aria-label="Image ${k + 1}"><img src="${esc(src)}" alt="" loading="lazy"></button>`).join("")
+    : !ph.length && p.colors.length > 1 ? p.colors.map((c) => `<button data-color="${c}" aria-current="${c === color}" aria-label="${COLORS[c].name}">${pic(p, c)}</button>`).join("") : "";
+  return `<div class="main">${main}</div>${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}`;
+}
 function productInfo() {
-  const { p, color, option, qty, msg } = pv, t = TYPES[p.type], o = occ[p.occasion];
+  const { p, color, option, qty, msg } = pv, t = TYPES[p.type], o = occ[p.occasion], opts = optionsOf(p);
   const std = arrival(p.type, "standard"), exp = arrival(p.type, "express");
   let fit = "";
   if (!o.season) {
@@ -442,7 +463,7 @@ function productInfo() {
     <div class="price">${usd(optionPrice(p, option))} USD</div>
     <div class="tax">Shipping calculated at checkout.</div>
     ${p.colors.length > 1 ? `<fieldset><legend>Color: ${COLORS[color].name}</legend><div class="pills">${p.colors.map((c) => `<button class="pill" data-color="${c}" aria-pressed="${c === color}">${COLORS[c].name}</button>`).join("")}</div></fieldset>` : ""}
-    ${t.options.length > 1 ? `<fieldset><legend>${p.type === "cards" ? "Quantity" : "Size"}</legend><div class="pills">${t.options.map((op) => `<button class="pill" data-opt="${esc(op)}" aria-pressed="${op === option}">${esc(op)}</button>`).join("")}</div></fieldset>` : ""}
+    ${opts.length > 1 ? `<fieldset><legend>${esc(optionLabel(p))}</legend><div class="pills">${opts.map((op) => `<button class="pill" data-opt="${esc(op)}" aria-pressed="${op === option}">${esc(op)}</button>`).join("")}</div></fieldset>` : ""}
     <div><div style="font-size:14px;color:var(--text);margin-bottom:8px">Quantity</div>
       <div class="qty"><button data-q="-1" aria-label="Decrease quantity">−</button><span>${qty}</span><button data-q="1" aria-label="Increase quantity">+</button></div></div>
     <div class="buy"><button class="button button--secondary" id="addBtn">Add to cart</button><button class="button" id="buyNow">Buy it now</button></div>
@@ -451,8 +472,8 @@ function productInfo() {
       <div><strong>Estimated delivery ${fmt(std.early)} – ${fmt(std.late)}</strong><br>Express: ${fmt(exp.early)} – ${fmt(exp.late)}${fit}</div></div>
     <p class="desc">${esc(p.blurb)}</p>
     <div>
-      <details class="acc"><summary>Materials &amp; care</summary><div>${esc(t.spec)}</div></details>
-      <details class="acc"><summary>Shipping</summary><div>Made to order in ${t.prod[0]}–${t.prod[1]} business days, then shipped to US addresses. Standard shipping is ${usd(CONFIG.shipping.standard.cents / 100)}, free on orders over ${usd(CONFIG.shipping.standard.freeOverCents / 100)}. Express is ${usd(CONFIG.shipping.express.cents / 100)}.</div></details>
+      <details class="acc"><summary>${p.supplier === "cj" ? "Details" : "Materials &amp; care"}</summary><div>${esc(specOf(p))}</div></details>
+      <details class="acc"><summary>Shipping</summary><div>${p.supplier === "cj" ? `Ships from a US warehouse within ${t.prod[0]}–${t.prod[1]} business days.` : `Made to order in ${t.prod[0]}–${t.prod[1]} business days, then shipped to US addresses.`} Standard shipping is ${usd(CONFIG.shipping.standard.cents / 100)}, free on orders over ${usd(CONFIG.shipping.standard.freeOverCents / 100)}. Express is ${usd(CONFIG.shipping.express.cents / 100)}.</div></details>
       <details class="acc"><summary>Returns &amp; replacements</summary><div>If your item arrives damaged or misprinted, email a photo within 30 days of delivery and we’ll replace it or refund it. Because each piece is made to order, we can’t accept returns for size or change of mind.</div></details>
     </div>`;
 }
@@ -501,9 +522,10 @@ $("#main").addEventListener("click", (e) => {
   if (e.target.closest("[data-reset]")) { Object.assign(facet, { type: "", by: "", sort: "featured" }); }
   if (!pv || !e.target.closest(".product")) return;
   const c = e.target.closest("[data-color]"), op = e.target.closest("[data-opt]"), q = e.target.closest("[data-q]");
-  if (c) { pv.color = c.dataset.color; pv.msg = ""; $(".gallery .main").innerHTML = mockup(pv.p, pv.color);
-    document.querySelectorAll(".thumbs button").forEach((b) => b.setAttribute("aria-current", b.dataset.color === pv.color)); }
-  else if (op) { pv.option = op.dataset.opt; pv.msg = ""; }
+  const im = e.target.closest("[data-img]");
+  if (im) { pv.img = Number(im.dataset.img); $(".gallery").innerHTML = gallery(); return; }
+  if (c) { pv.color = c.dataset.color; pv.msg = ""; pv.img = 0; $(".gallery").innerHTML = gallery(); }
+  else if (op) { pv.option = op.dataset.opt; pv.msg = ""; if (pv.p.supplier === "cj") { pv.img = 0; $(".gallery").innerHTML = gallery(); } }
   else if (q) pv.qty = Math.max(1, Math.min(CONFIG.maxQtyPerLine, pv.qty + Number(q.dataset.q)));
   else if (e.target.closest("#addBtn")) { addToCart(sku(pv.p.id, pv.color, pv.option), pv.qty); openCart(); return; }
   else if (e.target.closest("#buyNow")) { return checkout([{ sku: sku(pv.p.id, pv.color, pv.option), qty: pv.qty }], e.target.closest("#buyNow"), (m) => { pv.msg = m; $(".product .info").innerHTML = productInfo(); }); }
@@ -528,10 +550,10 @@ function drawCart() {
   ${lines.length ? `<div><div class="ship-bar">${left > 0 ? `You’re ${usd(left / 100)} away from free shipping.` : "Your order ships free."}<div class="track"><i style="width:${Math.min(100, (sub / free) * 100)}%"></i></div></div>
   <div class="drawer__items" style="margin-top:14px">${lines.map((l) => {
     const p = l.v.product, st = status(p), o = occ[p.occasion];
-    return `<div class="item"><a class="media" href="#${p.id}" data-close>${mockup(p, l.v.color)}</a>
+    return `<div class="item"><a class="media" href="#${p.id}" data-close>${pic(p, l.v.color, 0, l.v.option)}</a>
       <div style="min-width:0"><a href="#${p.id}" data-close>${esc(p.name)}</a>
         <div class="price" style="font-size:14px">${usd(l.v.unitCents / 100)}</div>
-        <dl>${p.colors.length > 1 ? `<dt class="visually-hidden">Color</dt><dd>Color: ${COLORS[l.v.color].name}</dd>` : ""}${TYPES[p.type].options.length > 1 ? `<dd>${p.type === "cards" ? "Quantity" : "Size"}: ${esc(l.v.option)}</dd>` : ""}</dl>
+        <dl>${p.colors.length > 1 ? `<dt class="visually-hidden">Color</dt><dd>Color: ${COLORS[l.v.color].name}</dd>` : ""}${optionsOf(p).length > 1 ? `<dd>${esc(optionLabel(p))}: ${esc(l.v.option)}</dd>` : ""}</dl>
         <div class="row"><div class="qty"><button data-lq="-1" data-s="${l.sku}" aria-label="Decrease">−</button><span>${l.qty}</span><button data-lq="1" data-s="${l.sku}" aria-label="Increase">+</button></div>
           <button class="remove" data-rm="${l.sku}" aria-label="Remove ${esc(p.name)}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 4h12M6 4V2h4v2M4 4l1 10h6l1-10"/></svg></button></div>
         ${st !== "in" ? `<div class="note">${st === "tight" ? `Choose express for ${esc(o.name)}` : `Arrives after ${esc(o.name)}`}</div>` : ""}</div></div>`;
@@ -539,7 +561,7 @@ function drawCart() {
   <div class="drawer__foot"><div class="totals"><span>Estimated total</span><span class="price">${usd(sub / 100)} USD</span></div>
     <small>Taxes, discounts and shipping calculated at checkout.</small>${cartMsg}
     <button class="button" id="checkoutBtn">Check out</button></div>`
-  : `<div class="drawer__items"><div class="empty-cart">${pup()}<h2>Your cart is empty</h2><a class="button" href="#shop-all" data-close>Continue shopping</a></div></div><div></div>`}`;
+  : `<div class="drawer__items"><div class="empty-cart"><h2>Your cart is empty</h2><a class="button" href="#shop-all" data-close>Continue shopping</a></div></div><div></div>`}`;
 }
 $("#cartBtn").addEventListener("click", openCart);
 $("#overlay").addEventListener("click", closeCart);
@@ -573,7 +595,7 @@ $("#searchBtn").addEventListener("click", () => { const s = $("#searchbar"); s.h
 $("#q").addEventListener("input", (e) => {
   const q = e.target.value.trim().toLowerCase();
   if (!q) { route(); return; }
-  const list = PRODUCTS.filter((p) => [p.name, occ[p.occasion].name, TYPES[p.type].label, p.blurb].join(" ").toLowerCase().includes(q));
+  const list = PRODUCTS.filter((p) => [p.name, occ[p.occasion].name, typeLabel(p), p.blurb].join(" ").toLowerCase().includes(q));
   $("#main").innerHTML = `<div class="page-width"><div class="collection-hero"><h1>Search results</h1><p>${list.length} result${list.length === 1 ? "" : "s"} for “${esc(e.target.value)}”</p></div><div style="height:24px"></div>${list.length ? grid(list) : ""}<div style="height:50px"></div></div>`;
 });
 document.addEventListener("click", (e) => { const d = $("#holMenu"); if (d.open && !d.contains(e.target)) d.open = false; });
@@ -582,7 +604,7 @@ const holLinks = upcoming.map((o) => `<a href="#${o.id}">${esc(o.name)}</a>`).jo
 $("#holLinks").innerHTML = holLinks;
 $("#mobileLinks").innerHTML = `<a href="#">Home</a><a href="#shop-all">Shop all</a><div class="sub">${holLinks}</div><a href="#policies">Shipping &amp; returns</a>`;
 $("#footShop").innerHTML = `<li><a href="#shop-all">Shop all</a></li>` + upcoming.map((o) => `<li><a href="#${o.id}">${esc(o.name)}</a></li>`).join("");
-$("#logo").innerHTML = `${CONFIG.mascotPhoto ? "" : head(30)}<span>${esc(NAME)}</span>`;
+$("#logo").textContent = NAME;
 $("#footAboutH").textContent = `About ${NAME}`;
 $("#footAbout").textContent = `Made-to-order gifts for every celebration of the season, printed in the US. ${NAME} is operated by ${CONFIG.operator}.`;
 $("#copy").textContent = `© ${TODAY.getUTCFullYear()}, ${NAME}`;
